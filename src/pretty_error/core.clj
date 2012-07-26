@@ -9,10 +9,12 @@
   (not= -1 (.indexOf s target)))
 
 (defn- get-causes [#^Throwable ex]
+  {:pre [(instance? Throwable ex)]}
   (map throwable->map
        (take-while (comp not nil?) (iterate #(.getCause %) (.getCause ex)))))
 
 (defn- stack-trace->map [#^StackTraceElement st]
+  {:pre [(instance? StackTraceElement st)]}
   {:obj      st
    :class    (.getClassName st)
    :filename (.getFileName st)
@@ -22,10 +24,12 @@
    :str      (.toString st)})
 
 (defn- get-stack-trace [#^Throwable ex]
+  {:pre [(instance? Throwable ex)]}
   (let [traces (seq (.getStackTrace ex))]
     (map stack-trace->map traces)))
 
 (defn throwable->map [ex]
+  {:pre [(instance? Throwable ex)]}
   {:message           (.getMessage ex)
    :stack-trace       (get-stack-trace ex)
    :causes            (get-causes ex)
@@ -33,6 +37,7 @@
    :localized-message (.getLocalizedMessage ex)})
 
 (defn clone-exception [#^Exception ex]
+  {:pre [(instance? Exception ex)]}
   (let [klass  (class ex)
         msg    (.getMessage ex)
         cause  (.getCause ex)
@@ -45,6 +50,8 @@
 
 (defn set-stack-trace-element
   [base-exception & elems]
+  {:pre [(instance? Exception base-exception)
+         (or (empty? elems) (every? map? elems))]}
   (let [ex (clone-exception base-exception)
         sts (map (fn [{:keys [class method filename line]}]
                    (StackTraceElement. class method filename line))
@@ -52,7 +59,10 @@
     (.setStackTrace ex (into-array StackTraceElement sts))
     ex))
 
-(defn filter-stack-trace [pred ex]
+(defn filter-stack-trace
+  [pred ex]
+  {:pre [(fn? pred)
+         (instance? Exception ex)]}
   (apply set-stack-trace-element ex (filter pred (get-stack-trace ex))))
 
 (defn- print-cause [cause & {:keys [caused?] :or {caused? false}}]
@@ -67,6 +77,7 @@
 
 (defn print-pretty-stack-trace
   [#^Exception ex]
+  {:pre [(instance? Exception ex)]}
   (let [[f & r] (:causes (throwable->map ex))]
     (print-cause f)
     (doseq [x r] (print-cause x :caused? true))))
