@@ -23,7 +23,7 @@
    :native?  (.isNativeMethod st)
    :str      (.toString st)})
 
-(defn- get-stack-trace [#^Throwable ex]
+(defn get-stack-trace [#^Throwable ex]
   {:pre [(instance? Throwable ex)]}
   (let [traces (seq (.getStackTrace ex))]
     (map stack-trace->map traces)))

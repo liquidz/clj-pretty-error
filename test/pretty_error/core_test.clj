@@ -1,25 +1,24 @@
 (ns pretty-error.core-test
   (:use clojure.test
-        pretty-error.core)
-  (:import [com.uo.liquidz ClassUtil])
-  )
-
-;(deftest sample-output
-;  (try
-;    (.foo nil)
-;    (catch Exception ex
-;      (print-pretty-stack-trace ex))))
-
-;(defn get-null-pointer-exception []
-;  (let [ex (atom nil)]
-;    (try (.foo nil)
-;      (catch NullPointerException e
-;        (reset! ex e)))
-;    @ex))
+        pretty-error.core))
 
 (defmacro assertion-error? [body]
   `(is (~'thrown? AssertionError ~body)))
 
+(deftest get-stack-trace-test
+  (testing "simple exception stack trace"
+    (let [st (get-stack-trace (Exception.))
+          st1 (first st)]
+      (are [x] (true? x)
+        (> (count st) 0)
+        (contains? st1 :class)
+        (contains? st1 :method)
+        (contains? st1 :filename)
+        (contains? st1 :line)
+        (contains? st1 :native?)
+        (contains? st1 :str))))
+  (testing "invalid param"
+    (assertion-error? (get-stack-trace "hello"))))
 
 (deftest throwable->map-test
   (testing "Simple exception"
