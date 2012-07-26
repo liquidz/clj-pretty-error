@@ -1,4 +1,4 @@
-(defproject clj-pretty-error "0.0.1"
+(defproject clj-pretty-error "0.0.2"
   :description "Library to controll exception and stack traces for Clojure."
   :url "http://example.com/FIXME"
   :license {:name "Eclipse Public License"
