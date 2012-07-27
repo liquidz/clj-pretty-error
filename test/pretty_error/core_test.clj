@@ -47,8 +47,7 @@
         "foo" (-> st first :class)
         "bar" (-> st first :method)
         "baz" (-> st first :filename)
-        123   (-> st first :line)))
-    )
+        123   (-> st first :line))))
 
   (testing "set multiple stack traces"
     (let [base (Exception. "hello")
@@ -66,6 +65,14 @@
           ex   (set-stack-trace-element base)]
       (is ex)
       (is (-> ex throwable->map :stack-trace empty?))))
+
+  (testing "StackTraceElement instances"
+    (let [base (Exception. "hello")
+          sts  (list (StackTraceElement. "a" "b" "c" 1)
+                     (StackTraceElement. "d" "e" "f" 2))
+          ex   (apply set-stack-trace-element base sts)]
+      (is ex)
+      (is (= 2 (-> ex throwable->map :stack-trace count)))))
 
   (testing "invalid param"
     (assertion-error? (set-stack-trace-element "hello"))
@@ -136,4 +143,8 @@
     (assertion-error? (filter-stack-trace "hello" (Exception.)))))
 
 
+(deftest sample-output
+  (try (.foo nil)
+    (catch Exception e
+      (print-pretty-stack-trace e))))
 

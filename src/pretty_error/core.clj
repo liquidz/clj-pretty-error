@@ -5,6 +5,17 @@
 
 (declare throwable->map)
 
+(def ^:dynamic *pretty-label-format*
+  "\n{{label}}")
+(def ^:dynamic *pretty-error-format*
+  "   at {{class}} / {{method}} ({{filename}}:{{line}})")
+(def ^:dynamic *pretty-cause-text*
+  "Caused by ")
+(def ^:dynamic *pretty-error-color*
+  {:label underline :method bold :filename red :line (comp red bold)})
+
+;; Private functions
+
 (defn- str-contains? [s target]
   (not= -1 (.indexOf s target)))
 
@@ -23,12 +34,20 @@
    :native?  (.isNativeMethod st)
    :str      (.toString st)})
 
-(defn get-stack-trace [#^Throwable ex]
+;; Public functions
+
+; =get-stack-trace
+(defn get-stack-trace
+  "Get stack trace list which is converted to map."
+  [#^Throwable ex]
   {:pre [(instance? Throwable ex)]}
   (let [traces (seq (.getStackTrace ex))]
     (map stack-trace->map traces)))
 
-(defn throwable->map [ex]
+; =throwable->map
+(defn throwable->map
+  "Convert java.lang.Throwable to map."
+  [ex]
   {:pre [(instance? Throwable ex)]}
   {:message           (.getMessage ex)
    :stack-trace       (get-stack-trace ex)
@@ -36,7 +55,10 @@
    :str               (.toString ex)
    :localized-message (.getLocalizedMessage ex)})
 
-(defn clone-exception [#^Exception ex]
+; =clone-exception
+(defn clone-exception
+  "Clone java.lang.Exception instance."
+  [#^Exception ex]
   {:pre [(instance? Exception ex)]}
   (let [klass  (class ex)
         msg    (.getMessage ex)
@@ -48,37 +70,47 @@
     (.setStackTrace new-ex (.getStackTrace ex))
     new-ex))
 
+; =set-stack-trace-element
 (defn set-stack-trace-element
+  "Set stack trace element list to specified java.lang.Exception."
   [base-exception & elems]
   {:pre [(instance? Exception base-exception)
-         (or (empty? elems) (every? map? elems))]}
-  (let [ex (clone-exception base-exception)
-        sts (map (fn [{:keys [class method filename line]}]
-                   (StackTraceElement. class method filename line))
+         (or (empty? elems)
+             (every? #(or (map? %) (instance? StackTraceElement %)) elems))]}
+  (let [ex  (clone-exception base-exception)
+        sts (map #(if (instance? StackTraceElement %) %
+                    (StackTraceElement. (:class %) (:method %) (:filename %) (:line %)))
                  elems)]
     (.setStackTrace ex (into-array StackTraceElement sts))
     ex))
 
+; =filter-stack-trace
 (defn filter-stack-trace
+  "Filter stack trace elements in specified java.lang.Exception."
   [pred ex]
   {:pre [(fn? pred)
          (instance? Exception ex)]}
-  (apply set-stack-trace-element ex (filter pred (get-stack-trace ex))))
+  (apply set-stack-trace-element ex (map :obj (filter pred (get-stack-trace ex)))))
 
-(defn- print-cause [cause & {:keys [caused?] :or {caused? false}}]
-  (let [label  (str (if caused? "Caused by " "") (:str cause))]
+; =print-error
+(defn- print-error
+  "Print one pretty error."
+  [ex & {:keys [caused?] :or {caused? false}}]
+  (let [label (str (if caused? *pretty-cause-text* "") (:str ex))
+        label ((:label *pretty-error-color*) label)]
     (flush)
-    (println "")
-    (println (underline label))
-    (doseq [st (:stack-trace cause)]
-      (let [st (assoc-color st :method bold :filename red :line (comp red bold))]
-        (println
-          (render "   at {{class}} / {{method}} ({{filename}}:{{line}})" st))))))
+    (println (render *pretty-label-format* {:label label}))
+    (doseq [st (:stack-trace ex)]
+      (let [st   (apply assoc-color st (flatten (seq *pretty-error-color*)))
+            text (render *pretty-error-format* st)]
+        (println text)))))
 
+; =print-pretty-stack-trace
 (defn print-pretty-stack-trace
+  "Print pretty stack trace."
   [#^Exception ex]
   {:pre [(instance? Exception ex)]}
-  (let [[f & r] (:causes (throwable->map ex))]
-    (print-cause f)
-    (doseq [x r] (print-cause x :caused? true))))
+  (let [ex (throwable->map ex)]
+    (print-error ex)
+    (doseq [x (:causes ex)] (print-error x :caused? true))))
 
