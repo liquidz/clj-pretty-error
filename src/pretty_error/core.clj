@@ -62,12 +62,11 @@
   {:pre [(instance? Exception ex)]}
   (let [klass  (class ex)
         msg    (.getMessage ex)
-        cause  (.getCause ex)
-        arg    (into-array Class (map class (remove nil? (list msg cause))))
-        c      (.getConstructor klass arg)
-        param  (into-array Object (remove nil? (list msg cause)))
-        new-ex (.newInstance c param)]
+        arg    (if msg (list msg) ())
+        c      (.getConstructor klass (into-array Class (map class arg)))
+        new-ex (.newInstance c (into-array Object arg))]
     (.setStackTrace new-ex (.getStackTrace ex))
+    (.initCause new-ex (.getCause ex))
     new-ex))
 
 ; =set-stack-trace-element

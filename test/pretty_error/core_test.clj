@@ -68,11 +68,18 @@
 
   (testing "StackTraceElement instances"
     (let [base (Exception. "hello")
-          sts  (list (StackTraceElement. "a" "b" "c" 1)
-                     (StackTraceElement. "d" "e" "f" 2))
-          ex   (apply set-stack-trace-element base sts)]
+          ex   (set-stack-trace-element
+                 base
+                 (StackTraceElement. "a" "b" "c" 1)
+                 (StackTraceElement. "d" "e" "f" 2))
+          sts  (:stack-trace (throwable->map ex))]
       (is ex)
-      (is (= 2 (-> ex throwable->map :stack-trace count)))))
+      (are [x y] (= x y)
+        2   (count sts)
+        "a" (-> sts first :class)
+        "b" (-> sts first :method)
+        "c" (-> sts first :filename)
+        1   (-> sts first :line))))
 
   (testing "invalid param"
     (assertion-error? (set-stack-trace-element "hello"))
@@ -109,7 +116,14 @@
     (let [ex1 (NullPointerException. "hello")
           ex2 (clone-exception ex1)]
       (is (not (= ex1 ex2)))
-      (is (= (throwable->map ex1) (throwable->map ex2)))))
+      (is (= (throwable->map ex1) (throwable->map ex2))))
+
+
+    (let [ex1 (NoSuchMethodException. "hello")]
+      (.initCause ex1 (Exception. "cause"))
+      (let [ex2 (clone-exception ex1)]
+        (is (not= ex1 ex2))
+        (is (= (throwable->map ex1) (throwable->map ex2))))))
 
   (testing "invalid param"
     (assertion-error? (clone-exception "hello"))))
@@ -143,8 +157,8 @@
     (assertion-error? (filter-stack-trace "hello" (Exception.)))))
 
 
-(deftest sample-output
-  (try (.foo nil)
-    (catch Exception e
-      (print-pretty-stack-trace e))))
+;(deftest sample-output
+;  (try (.foo nil)
+;    (catch Exception e
+;      (print-pretty-stack-trace e))))
 
