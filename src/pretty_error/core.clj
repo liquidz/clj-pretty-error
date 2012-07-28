@@ -55,51 +55,28 @@
    :str               (.toString ex)
    :localized-message (.getLocalizedMessage ex)})
 
-; =clone-exception
-(defn clone-exception
-  "Clone java.lang.Exception instance."
-  [#^Exception ex]
-  {:pre [(instance? Exception ex)]}
-  (let [klass  (class ex)
-        msg    (.getMessage ex)
-        arg    (if msg (list msg) ())
-        c      (.getConstructor klass (into-array Class (map class arg)))
-        new-ex (.newInstance c (into-array Object arg))]
-    (.setStackTrace new-ex (.getStackTrace ex))
-    (.initCause new-ex (.getCause ex))
-    new-ex))
-
-; =set-stack-trace-element
-(defn set-stack-trace-element
+; =set-stack-trace-element!
+(defn set-stack-trace-element!
   "Set stack trace element list to specified java.lang.Exception."
   [base-exception & elems]
   {:pre [(instance? Exception base-exception)
          (or (empty? elems)
              (every? #(or (map? %) (instance? StackTraceElement %)) elems))]}
-  (let [ex  (clone-exception base-exception)
-        sts (map #(if (instance? StackTraceElement %) %
+  (let [sts (map #(if (instance? StackTraceElement %) %
                     (StackTraceElement. (:class %) (:method %) (:filename %) (:line %)))
                  elems)]
-    (.setStackTrace ex (into-array StackTraceElement sts))
-    ex))
-
-; =filter-stack-trace
-(defn filter-stack-trace
-  "Filter stack trace elements in specified java.lang.Exception."
-  [pred ex]
-  {:pre [(fn? pred)
-         (instance? Exception ex)]}
-  (apply set-stack-trace-element ex (map :obj (filter pred (get-stack-trace ex)))))
+    (.setStackTrace base-exception (into-array StackTraceElement sts))
+    base-exception))
 
 ; =print-error
 (defn- print-error
   "Print one pretty error."
-  [ex & {:keys [caused?] :or {caused? false}}]
+  [ex stack-trace-pred & {:keys [caused?] :or {caused? false}}]
   (let [label (str (if caused? *pretty-cause-text* "") (:str ex))
         label ((:label *pretty-error-color*) label)]
     (flush)
     (println (render *pretty-label-format* {:label label}))
-    (doseq [st (:stack-trace ex)]
+    (doseq [st (filter stack-trace-pred (:stack-trace ex))]
       (let [st   (apply assoc-color st (flatten (seq *pretty-error-color*)))
             text (render *pretty-error-format* st)]
         (println text)))))
@@ -107,9 +84,9 @@
 ; =print-pretty-stack-trace
 (defn print-pretty-stack-trace
   "Print pretty stack trace."
-  [#^Exception ex]
+  [#^Exception ex & {:keys [filter] :or {filter identity}}]
   {:pre [(instance? Exception ex)]}
   (let [ex (throwable->map ex)]
-    (print-error ex)
-    (doseq [x (:causes ex)] (print-error x :caused? true))))
+    (print-error ex filter)
+    (doseq [x (:causes ex)] (print-error x filter :caused? true))))
 
